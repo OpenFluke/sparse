@@ -594,10 +594,11 @@ func main() {
 	// Settings
 	role := "ARC"
 	domain := "openfluke.com"
-	radius := 50.0              // Distance from center
+	radius := 120.0             // Distance from center
 	paddingDegrees := 360.0 / 8 // Evenly spaced around sphere (for 8 constructs)
-	constructsPerPlanet := 8    // How many per planet
+	constructsPerPlanet := 10   // How many per planet
 
+	nukeAllCubes()
 	// Spawn around all planets
 	spawnConstructsAroundSphere(1, role, domain, planetCenters, radius, paddingDegrees, constructsPerPlanet)
 	nukeAllCubes()

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"sync"
 	"time"
 )
@@ -46,73 +45,56 @@ func spawnConstructsAroundSphere(gen int, role string, domain string, planetCent
 	for planetIdx, center := range planetCenters {
 		fmt.Printf("🪐 Setting up Planet %d at (%.2f, %.2f, %.2f)\n", planetIdx+1, center[0], center[1], center[2])
 
-		for i := 0; i < constructsPerPlanet; i++ {
+		// Generate evenly distributed points using Fibonacci sphere
+		positions := fibonacciSphere(constructsPerPlanet, radius, center)
+
+		for i, pos := range positions {
 			wg.Add(1)
-
-			go func(planetIdx, i int, center []float64) {
+			go func(planetIdx, i int, position []float64) {
 				defer wg.Done()
-
-				ver := (planetIdx * constructsPerPlanet) + i + 1 // Unique gen ID
+				ver := (planetIdx * constructsPerPlanet) + i + 1 // Unique version ID
 				unitName := generateUnitID(role, domain, gen, ver)
-
 				allUnits = appendUnitSafely(allUnits, unitName)
-
-				angle := float64(i) * paddingDegrees
-
-				fmt.Printf("\n🚀 Spawning unit: %s at %.2f degrees\n", unitName, angle)
-				buildDynamicConstruct(unitName, center, radius, angle)
-
-				targetedUnfreezeAllCubes(unitName) // Unfreeze right after spawning
-			}(planetIdx, i, center)
+				fmt.Printf("\n🚀 Spawning unit: %s at position (%.2f, %.2f, %.2f)\n", unitName, position[0], position[1], position[2])
+				buildDynamicConstruct(unitName, position, radius, 0) // Angle is unused with Fibonacci sphere
+				targetedUnfreezeAllCubes(unitName)                   // Unfreeze right after spawning
+			}(planetIdx, i, pos)
 		}
 	}
 
 	wg.Wait()
 	fmt.Println("🌀 All constructs unfrozen")
 
-	// Wait to simulate running phase
-	//time.Sleep(10 * time.Second)
-
-	// Despawn one-by-one
-	for _, unit := range allUnits {
+	// Despawn one-by-one with 500ms delay
+	/*for _, unit := range allUnits {
 		targetedDespawnAllCubes(unit)
-		time.Sleep(1 * time.Second)
-	}
-
+		//time.Sleep(500 * time.Millisecond)
+	}*/
 	fmt.Println("🧹 All constructs removed, simulation complete.")
 }
 
 func buildDynamicConstruct(unitName string, center []float64, radius float64, angle float64) {
-	fmt.Printf("\n🚀 Spawning unit: %s at angle %.2f°\n", unitName, angle)
+	fmt.Printf("\n🚀 Spawning unit: %s at position (%.2f, %.2f, %.2f)\n", unitName, center[0], center[1], center[2])
 
-	// Calculate position around the sphere
-	rad := angle * math.Pi / 180
-	x := center[0] + radius*math.Cos(rad)
-	y := center[1]
-	z := center[2] + radius*math.Sin(rad)
-
-	// Create all the cubes relative to this new x, y, z
+	// Create all the cubes relative to the center position
 	cubes := []Cube{
-		{Name: unitName + "_head", Position: []float64{x, y + 3.6, z}},
-		{Name: unitName + "_body", Position: []float64{x, y + 2.4, z}},
-		{Name: unitName + "_left_arm", Position: []float64{x - 1.2, y + 2.4, z}},
-		{Name: unitName + "_right_arm", Position: []float64{x + 1.2, y + 2.4, z}},
-		{Name: unitName + "_left_leg", Position: []float64{x - 0.6, y + 1.2, z}},
-		{Name: unitName + "_right_leg", Position: []float64{x + 0.6, y + 1.2, z}},
-		{Name: unitName + "_left_foot", Position: []float64{x - 0.6, y + 0.0, z}},
-		{Name: unitName + "_right_foot", Position: []float64{x + 0.6, y + 0.0, z}},
+		{Name: unitName + "_head", Position: []float64{center[0], center[1] + 3.6, center[2]}},
+		{Name: unitName + "_body", Position: []float64{center[0], center[1] + 2.4, center[2]}},
+		{Name: unitName + "_left_arm", Position: []float64{center[0] - 1.2, center[1] + 2.4, center[2]}},
+		{Name: unitName + "_right_arm", Position: []float64{center[0] + 1.2, center[1] + 2.4, center[2]}},
+		{Name: unitName + "_left_leg", Position: []float64{center[0] - 0.6, center[1] + 1.2, center[2]}},
+		{Name: unitName + "_right_leg", Position: []float64{center[0] + 0.6, center[1] + 1.2, center[2]}},
+		{Name: unitName + "_left_foot", Position: []float64{center[0] - 0.6, center[1] + 0.0, center[2]}},
+		{Name: unitName + "_right_foot", Position: []float64{center[0] + 0.6, center[1] + 0.0, center[2]}},
 	}
 
-	// 🛡️ Make a REAL WaitGroup
+	// Spawn all cubes
 	var wg sync.WaitGroup
 	wg.Add(len(cubes))
-
-	// 🛠️ Now properly spawn all cubes
 	for _, cube := range cubes {
-		go spawnCube(cube, &wg) // <<< PASS the wg pointer
+		go spawnCube(cube, &wg)
 	}
 	wg.Wait()
-
 	fmt.Printf("✅ Construct %s spawned\n", unitName)
 
 	// Define joint stiffness
@@ -130,11 +112,9 @@ func buildDynamicConstruct(unitName string, center []float64, radius float64, an
 		{unitName + "_body_BASE", unitName + "_left_arm_BASE", unitName + "_left_leg_BASE", unitName + "_left_foot_BASE"},
 		{unitName + "_body_BASE", unitName + "_right_arm_BASE", unitName + "_right_leg_BASE", unitName + "_right_foot_BASE"},
 	}
-
 	if err := linkCubeChains(chains, "hinge", jointParams); err != nil {
 		fmt.Printf("❌ Error linking cubes for %s: %v\n", unitName, err)
 		return
 	}
-
 	fmt.Printf("🔗 Construct %s linked\n", unitName)
 }
