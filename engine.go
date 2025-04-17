@@ -22,6 +22,7 @@ type Message map[string]interface{}
 type Cube struct {
 	Name     string
 	Position []float64
+	UnitName string // Optional: metadata tag
 }
 
 type CubeLink struct {
@@ -569,31 +570,155 @@ func linkCubeChains(chains [][]string, jointType string, jointParams map[string]
 	return nil
 }
 
-func main() {
-	// Position offset to shift the whole structure
-	var offset = []float64{40, 120, -3} // Raise up enough to allow fall
-
-	// Redefine cubeGroups for 3 vertical cubes
-	cubeGroups := [][]Cube{
-		{
-			{Name: "bit1", Position: []float64{0 + offset[0], 0 + offset[1], 0 + offset[2]}},
-			{Name: "bit2", Position: []float64{0 + offset[0], 1.2 + offset[1], 0 + offset[2]}},
-			{Name: "bit3", Position: []float64{0 + offset[0], 2.4 + offset[1], 0 + offset[2]}},
-		},
+func generateUnitID(role string, domain string, gen int, version int) string {
+	domainParts := strings.Split(domain, ".")
+	projectCode := ""
+	for _, part := range domainParts {
+		if len(part) > 0 {
+			projectCode += strings.ToUpper(string(part[0]))
+		}
 	}
+	return fmt.Sprintf("[%s]-%s-gen%d-v%d", strings.ToUpper(role), projectCode, gen, version)
+}
 
-	// Spawn all cubes
+func targetedUnfreezeAllCubes(unitName string) {
 	var wg sync.WaitGroup
-	for _, group := range cubeGroups {
-		for _, cube := range group {
+	for _, cube := range globalCubeList {
+		if strings.HasPrefix(cube, unitName+"_") {
 			wg.Add(1)
-			go spawnCube(cube, &wg)
+			go func(name string) {
+				defer wg.Done()
+				conn, err := net.Dial("tcp", serverAddr)
+				if err != nil {
+					fmt.Printf("[%s] [Unfreeze] Connection failed: %v\n", unitName, err)
+					return
+				}
+				defer conn.Close()
+
+				if _, err := conn.Write([]byte(authPass + delimiter)); err != nil {
+					return
+				}
+				_, _ = readResponse(conn)
+
+				unfreeze := Message{
+					"type":      "freeze_cube",
+					"cube_name": name,
+					"freeze":    false,
+				}
+				sendJSONMessage(conn, unfreeze)
+			}(cube)
 		}
 	}
 	wg.Wait()
-	fmt.Println("✅ Cubes spawned")
+	fmt.Printf("🌀 [%s] All cubes unfrozen.\n", unitName)
+}
 
-	// Define hinge joint params
+func targetedDespawnAllCubes(unitName string) {
+	var wg sync.WaitGroup
+	for _, cube := range globalCubeList {
+		if strings.HasPrefix(cube, unitName+"_") {
+			wg.Add(1)
+			go func(name string) {
+				defer wg.Done()
+				conn, err := net.Dial("tcp", serverAddr)
+				if err != nil {
+					fmt.Printf("[%s] [Despawn] Connection failed: %v\n", unitName, err)
+					return
+				}
+				defer conn.Close()
+
+				if _, err := conn.Write([]byte(authPass + delimiter)); err != nil {
+					return
+				}
+				_, _ = readResponse(conn)
+
+				despawn := Message{
+					"type":      "despawn_cube",
+					"cube_name": name,
+				}
+				sendJSONMessage(conn, despawn)
+			}(cube)
+		}
+	}
+	wg.Wait()
+	fmt.Printf("🧹 [%s] All cubes despawned.\n", unitName)
+}
+
+func staticBulkTest() {
+	var unitNames []string
+
+	// Spawn 5 units with different offsets and IDs
+	for i := 1; i <= 5; i++ {
+		unitName := generateUnitID("ARC", "openfluke.com", i, 1)
+		unitNames = append(unitNames, unitName)
+
+		offset := []float64{float64(20 * i), 120, -3} // Spread out by +20 X
+		fmt.Printf("\n🚀 Spawning unit: %s\n", unitName)
+		staticBuilder(unitName, offset)
+	}
+
+	// Unfreeze them all
+	for _, unitName := range unitNames {
+		targetedUnfreezeAllCubes(unitName)
+	}
+	fmt.Println("🌀 All constructs unfrozen")
+	time.Sleep(3 * time.Second)
+
+	// Despawn one-by-one with delay
+	for _, unitName := range unitNames {
+		targetedDespawnAllCubes(unitName)
+		time.Sleep(1 * time.Second)
+	}
+
+	fmt.Println("🧹 All constructs removed, simulation complete.")
+}
+
+func main() {
+
+	unitName := generateUnitID("ARC", "openfluke.com", 1, 1)
+
+	offset := []float64{40, 120, -3}
+	staticBuilder(unitName, offset)
+
+	/*	unfreezeAllCubes()
+		fmt.Println("🌀 Unfreezing humanoid...")
+
+		time.Sleep(6 * time.Second)
+
+		despawnAllCubes()
+	*/
+
+	targetedUnfreezeAllCubes(unitName)
+	time.Sleep(6 * time.Second)
+	targetedDespawnAllCubes(unitName)
+
+	staticBulkTest()
+
+	fmt.Println("🧹 Humanoid despawned, simulation complete.")
+}
+
+func staticBuilder(unitName string, offset []float64) {
+	fmt.Println("🤖 Spawning:", unitName)
+	cubes := []Cube{
+		{Name: unitName + "_head", Position: []float64{0 + offset[0], 3.6 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_body", Position: []float64{0 + offset[0], 2.4 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_left_arm", Position: []float64{-1.2 + offset[0], 2.4 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_right_arm", Position: []float64{1.2 + offset[0], 2.4 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_left_leg", Position: []float64{-0.6 + offset[0], 1.2 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_right_leg", Position: []float64{0.6 + offset[0], 1.2 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_left_foot", Position: []float64{-0.6 + offset[0], 0.0 + offset[1], 0 + offset[2]}},
+		{Name: unitName + "_right_foot", Position: []float64{0.6 + offset[0], 0.0 + offset[1], 0 + offset[2]}},
+	}
+
+	var wg sync.WaitGroup
+	for _, cube := range cubes {
+		wg.Add(1)
+		go spawnCube(cube, &wg)
+	}
+	wg.Wait()
+	fmt.Println("✅ Humanoid Cubes Spawned")
+
+	// Define joint stiffness
 	jointParams := map[string]float64{
 		"limit_upper":           0.0,
 		"limit_lower":           0.0,
@@ -602,31 +727,18 @@ func main() {
 		"motor_max_impulse":     1000.0,
 	}
 
-	// Link cubes starting with prefix "bit"
-	//testLinkBodyCubes("bit", "hinge", jointParams)
-
+	// Connect all body parts
 	chains := [][]string{
-		{"bit1_BASE", "bit2_BASE", "bit3_BASE"},
-		//	{"rightbackleg1_BASE", "rightbackknee1_BASE", "rightbackleg2_BASE"},
-
+		{unitName + "_head_BASE", unitName + "_body_BASE"},
+		{unitName + "_body_BASE", unitName + "_left_arm_BASE", unitName + "_left_leg_BASE", unitName + "_left_foot_BASE"},
+		{unitName + "_body_BASE", unitName + "_right_arm_BASE", unitName + "_right_leg_BASE", unitName + "_right_foot_BASE"},
 	}
 
 	if err := linkCubeChains(chains, "hinge", jointParams); err != nil {
-		fmt.Println("Error linking cube chains:", err)
+		fmt.Println("❌ Error linking cubes:", err)
 	}
 
-	fmt.Println("🔗 Cubes linked")
-
-	// Unfreeze cubes to let them fall
-	unfreezeAllCubes()
-	fmt.Println("🌀 Cubes unfrozen")
-
-	// Let simulation run briefly
-	time.Sleep(5 * time.Second)
-
-	// Despawn after waiting
-	despawnAllCubes()
-	fmt.Println("🧹 Cubes despawned, simulation complete.")
+	fmt.Println("🔗 Humanoid Linked")
 }
 
 func findClosestJoint(targetCube string) string {
