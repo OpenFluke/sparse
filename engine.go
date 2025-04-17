@@ -132,34 +132,6 @@ func unfreezeAllCubes() {
 	wg.Wait()
 }
 
-func despawnAllCubes() {
-	var wg sync.WaitGroup
-	for _, cube := range globalCubeList {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			conn, err := net.Dial("tcp", serverAddr)
-			if err != nil {
-				fmt.Println("[Despawn] Failed to connect:", err)
-				return
-			}
-			defer conn.Close()
-
-			if _, err := conn.Write([]byte(authPass + delimiter)); err != nil {
-				return
-			}
-			_, _ = readResponse(conn)
-
-			despawn := Message{
-				"type":      "despawn_cube",
-				"cube_name": name,
-			}
-			sendJSONMessage(conn, despawn)
-		}(cube)
-	}
-	wg.Wait()
-}
-
 func linkCubes(cubeA, cubeB, jointType, jointName string) {
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
@@ -613,67 +585,25 @@ func targetedUnfreezeAllCubes(unitName string) {
 	fmt.Printf("🌀 [%s] All cubes unfrozen.\n", unitName)
 }
 
-func targetedDespawnAllCubes(unitName string) {
-	var wg sync.WaitGroup
-	for _, cube := range globalCubeList {
-		if strings.HasPrefix(cube, unitName+"_") {
-			wg.Add(1)
-			go func(name string) {
-				defer wg.Done()
-				conn, err := net.Dial("tcp", serverAddr)
-				if err != nil {
-					fmt.Printf("[%s] [Despawn] Connection failed: %v\n", unitName, err)
-					return
-				}
-				defer conn.Close()
-
-				if _, err := conn.Write([]byte(authPass + delimiter)); err != nil {
-					return
-				}
-				_, _ = readResponse(conn)
-
-				despawn := Message{
-					"type":      "despawn_cube",
-					"cube_name": name,
-				}
-				sendJSONMessage(conn, despawn)
-			}(cube)
-		}
-	}
-	wg.Wait()
-	fmt.Printf("🧹 [%s] All cubes despawned.\n", unitName)
-}
-
-func staticBulkTest() {
-	var unitNames []string
-
-	// Spawn 5 units with different offsets and IDs
-	for i := 1; i <= 5; i++ {
-		unitName := generateUnitID("ARC", "openfluke.com", i, 1)
-		unitNames = append(unitNames, unitName)
-
-		offset := []float64{float64(20 * i), 120, -3} // Spread out by +20 X
-		fmt.Printf("\n🚀 Spawning unit: %s\n", unitName)
-		staticBuilder(unitName, offset)
-	}
-
-	// Unfreeze them all
-	for _, unitName := range unitNames {
-		targetedUnfreezeAllCubes(unitName)
-	}
-	fmt.Println("🌀 All constructs unfrozen")
-	time.Sleep(3 * time.Second)
-
-	// Despawn one-by-one with delay
-	for _, unitName := range unitNames {
-		targetedDespawnAllCubes(unitName)
-		time.Sleep(1 * time.Second)
-	}
-
-	fmt.Println("🧹 All constructs removed, simulation complete.")
-}
-
 func main() {
+	// List of planets' center coordinates
+	planetCenters := [][]float64{
+		{0, 0, 0},
+	}
+
+	// Settings
+	role := "ARC"
+	domain := "openfluke.com"
+	radius := 50.0              // Distance from center
+	paddingDegrees := 360.0 / 8 // Evenly spaced around sphere (for 8 constructs)
+	constructsPerPlanet := 8    // How many per planet
+
+	// Spawn around all planets
+	spawnConstructsAroundSphere(1, role, domain, planetCenters, radius, paddingDegrees, constructsPerPlanet)
+	nukeAllCubes()
+}
+
+func OldTestingmain() {
 
 	unitName := generateUnitID("ARC", "openfluke.com", 1, 1)
 
