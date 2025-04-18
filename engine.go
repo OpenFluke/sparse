@@ -13,9 +13,11 @@ import (
 const (
 	serverAddr = "127.0.0.1:14000"
 	//serverAddr = "192.168.0.227:10002"
-	authPass  = "my_secure_password"
+	//authPass  = "my_secure_password"
 	delimiter = "<???DONE???---"
 )
+
+var scanner = &SparseScanner{}
 
 type Message map[string]interface{}
 
@@ -586,8 +588,23 @@ func targetedUnfreezeAllCubes(unitName string) {
 }
 
 func main() {
+
+	// --- Discovery Phase ---
+	scanner.InitSparseScanner(
+		[]string{
+			"192.168.0.229",
+			"192.168.0.227",
+		},
+		10002, // starting port
+	)
+
+	scanner.ScanAllPods()
+	scanner.PrintSummary()
+
+	//centers := scanner.ExtractPlanetCenters()
+
 	// List of planets' center coordinates
-	planetCenters := [][]float64{
+	/*planetCenters := [][]float64{
 		{0, 0, 0},
 	}
 
@@ -601,7 +618,7 @@ func main() {
 	nukeAllCubes()
 	// Spawn around all planets
 	spawnConstructsAroundSphere(1, role, domain, planetCenters, radius, paddingDegrees, constructsPerPlanet)
-	nukeAllCubes()
+	nukeAllCubes()*/
 }
 
 func OldTestingmain() {
