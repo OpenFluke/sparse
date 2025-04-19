@@ -1,6 +1,10 @@
 package main
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"strings"
+)
 
 func calculateRotationOutward(center, position []float64) float64 {
 	dx := position[0] - center[0]
@@ -59,4 +63,15 @@ func fibonacciSphere(n int, radius float64, center []float64) [][]float64 {
 		}
 	}
 	return points
+}
+
+func generateUnitID(role string, domain string, gen int, version int) string {
+	domainParts := strings.Split(domain, ".")
+	projectCode := ""
+	for _, part := range domainParts {
+		if len(part) > 0 {
+			projectCode += strings.ToUpper(string(part[0]))
+		}
+	}
+	return fmt.Sprintf("[%s]-%s-gen%d-v%d", strings.ToUpper(role), projectCode, gen, version)
 }

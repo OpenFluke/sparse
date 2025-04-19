@@ -262,3 +262,40 @@ func read(conn net.Conn) string {
 	}
 	return msg
 }
+
+func (s *SparseScanner) ScanSinglePod(host string, port int) PodResult {
+	result := s.checkPod(host, port)
+	if result.Success {
+		for _, planet := range result.Planets {
+			coords := [3]float64{planet.Position["x"], planet.Position["y"], planet.Position["z"]}
+			s.PlanetsMap[planet.Name] = PlanetRecord{
+				Name:        planet.Name,
+				Coordinates: coords,
+				Host:        result.Host,
+				Port:        result.Port,
+			}
+		}
+		for _, cube := range result.Cubes {
+			s.CubesMap[cube] = result.Host
+		}
+	}
+	return result // Do not append to s.Results here
+}
+
+func (s *SparseScanner) AddPodResult(result PodResult) {
+	s.Results = append(s.Results, result)
+	if result.Success {
+		for _, planet := range result.Planets {
+			coords := [3]float64{planet.Position["x"], planet.Position["y"], planet.Position["z"]}
+			s.PlanetsMap[planet.Name] = PlanetRecord{
+				Name:        planet.Name,
+				Coordinates: coords,
+				Host:        result.Host,
+				Port:        result.Port,
+			}
+		}
+		for _, cube := range result.Cubes {
+			s.CubesMap[cube] = result.Host
+		}
+	}
+}
