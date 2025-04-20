@@ -1,0 +1,26 @@
+{
+  "center": [0, 0, 0],
+  "cubes": [
+    {"Name": "head", "Position": [0, 3.6, 0]},
+    {"Name": "body", "Position": [0, 2.4, 0]},
+    {"Name": "left_arm", "Position": [-1.2, 2.4, 0]},
+    {"Name": "right_arm", "Position": [1.2, 2.4, 0]},
+    {"Name": "left_leg", "Position": [-0.6, 1.2, 0]},
+    {"Name": "right_leg", "Position": [0.6, 1.2, 0]},
+    {"Name": "left_foot", "Position": [-0.6, 0.0, 0]},
+    {"Name": "right_foot", "Position": [0.6, 0.0, 0]}
+  ],
+  "chains": [
+    ["head", "body"],
+    ["body", "left_arm", "left_leg", "left_foot"],
+    ["body", "right_arm", "right_leg", "right_foot"]
+  ],
+  "joint_type": "hinge",
+  "joint_params": {
+    "limit_upper": 0.0,
+    "limit_lower": 0.0,
+    "motor_enable": 1.0,
+    "motor_target_velocity": 0.0,
+    "motor_max_impulse": 1000.0
+  }
+}

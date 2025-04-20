@@ -46,15 +46,26 @@ func toStringArray(v interface{}) []string {
 // fibonacciSphere generates n points evenly distributed on a sphere
 func fibonacciSphere(n int, radius float64, center []float64) [][]float64 {
 	points := make([][]float64, n)
-	phi := math.Pi * (3 - math.Sqrt(5)) // Golden angle in radians
+	if n == 0 {
+		return points
+	}
+	if n == 1 {
+		// For n=1, place the point along the positive X-axis at the specified radius
+		points[0] = []float64{
+			center[0] + radius,
+			center[1],
+			center[2],
+		}
+		return points
+	}
 
+	phi := math.Pi * (3 - math.Sqrt(5)) // Golden angle in radians
 	for i := 0; i < n; i++ {
 		y := 1 - (float64(i)/float64(n-1))*2 // y goes from 1 to -1
 		r := math.Sqrt(1 - y*y)              // radius at y
 		theta := phi * float64(i)            // golden angle increment
 		x := math.Cos(theta) * r
 		z := math.Sin(theta) * r
-
 		// Scale by radius and offset by center
 		points[i] = []float64{
 			center[0] + x*radius,

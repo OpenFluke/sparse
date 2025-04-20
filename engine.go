@@ -34,11 +34,18 @@ type CubeLink struct {
 }
 
 var (
-	globalCubeList  []string
-	cubeListMutex   sync.Mutex
-	globalCubeLinks []CubeLink
-	linkListMutex   sync.Mutex
+	globalCubeList    []string
+	cubeListMutex     sync.Mutex
+	globalCubeLinks   []CubeLink
+	linkListMutex     sync.Mutex
+	occupiedPositions []occupiedPosition // Track positions of spawned constructs
+	positionMutex     sync.Mutex
 )
+
+type occupiedPosition struct {
+	Position []float64
+	UnitName string
+}
 
 func sendJSONMessage(conn net.Conn, msg Message) error {
 	data, err := json.Marshal(msg)
@@ -267,7 +274,7 @@ func targetedUnfreezeAllCubes(unitName string) {
 func main() {
 
 	// --- Discovery Phase ---
-	/*scanner.InitSparseScanner(
+	scanner.InitSparseScanner(
 		[]string{
 			"192.168.0.229",
 			"192.168.0.227",
@@ -278,11 +285,13 @@ func main() {
 	scanner.ScanAllPods()
 	scanner.PrintSummary()
 
-	singlePod()*/
+	firstSpawn()
+
+	//singlePod()
 	//centers := scanner.ExtractPlanetCenters()
 
 	// List of planets' center coordinates
-	planetCenters := [][]float64{
+	/*planetCenters := [][]float64{
 		{0, 0, 0},
 	}
 
@@ -299,7 +308,7 @@ func main() {
 
 	singlePod()
 
-	nukeAllCubes()
+	nukeAllCubes()*/
 }
 
 func singlePod() {
