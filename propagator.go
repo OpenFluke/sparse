@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -61,6 +62,18 @@ type Planet struct {
 	ResourceLocations []map[string]float64 `json:"ResourceLocations"`
 	TreeLocations     []map[string]float64 `json:"TreeLocations"`
 	BiomeType         int                  `json:"BiomeType"`
+}
+
+// CubeConnection represents a cube and its connections (joints and connected cubes).
+type CubeConnection struct {
+	CubeName string      // Name of the cube
+	Joints   []JointInfo // List of joints involving this cube
+}
+
+// JointInfo represents a joint and the cubes it connects.
+type JointInfo struct {
+	JointName     string // Name of the joint
+	ConnectedCube string // The other cube connected by this joint (may be empty if unknown)
 }
 
 // --- CONSTRUCTOR ---
@@ -298,4 +311,152 @@ func (s *SparseScanner) AddPodResult(result PodResult) {
 			s.CubesMap[cube] = result.Host
 		}
 	}
+}
+
+// GetCubesByPrefix returns a list of cube names that start with the given prefix.
+func (s *SparseScanner) GetCubesByPrefix(prefix string) []string {
+	filteredCubes := []string{}
+	for cubeName := range s.CubesMap {
+		if strings.HasPrefix(cubeName, prefix) {
+			filteredCubes = append(filteredCubes, cubeName)
+		}
+	}
+	return filteredCubes
+}
+
+// GetCubesAndConnections retrieves all cubes starting with the given prefix and their connections.
+func (s *SparseScanner) GetCubesAndConnections(prefix string) ([]CubeConnection, error) {
+	// Step 1: Get all cubes matching the prefix
+	cubes := s.GetCubesByPrefix(prefix)
+	if len(cubes) == 0 {
+		return nil, fmt.Errorf("no cubes found with prefix %s", prefix)
+	}
+
+	// Step 2: For each cube, get its joints and attempt to find connections
+	result := make([]CubeConnection, 0, len(cubes))
+	for _, cube := range cubes {
+		// Get joints for this cube using the existing function
+		joints := getJointsForCube(cube)
+
+		// Prepare the list of joint information
+		jointInfos := make([]JointInfo, 0, len(joints))
+
+		// Lock globalCubeLinks to safely read it
+		linkListMutex.Lock()
+		for _, jointName := range joints {
+			// Try to find this joint in globalCubeLinks to identify the connected cube
+			connectedCube := ""
+			for _, link := range globalCubeLinks {
+				if link.JointName == jointName {
+					// Determine which cube in the link is the "other" cube
+					if link.CubeA == cube {
+						connectedCube = link.CubeB
+					} else if link.CubeB == cube {
+						connectedCube = link.CubeA
+					}
+					break
+				}
+			}
+			jointInfos = append(jointInfos, JointInfo{
+				JointName:     jointName,
+				ConnectedCube: connectedCube,
+			})
+		}
+		linkListMutex.Unlock()
+
+		// Add to result
+		result = append(result, CubeConnection{
+			CubeName: cube,
+			Joints:   jointInfos,
+		})
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no connections found for cubes with prefix %s", prefix)
+	}
+
+	return result, nil
+}
+
+// GetCubesAndConnectionsParallel retrieves all cubes starting with the given prefix and their connections,
+// using a thread pool to parallelize the requests.
+func (s *SparseScanner) GetCubesAndConnectionsParallel(prefix string) ([]CubeConnection, error) {
+	// Step 1: Get all cubes matching the prefix
+	cubes := s.GetCubesByPrefix(prefix)
+	if len(cubes) == 0 {
+		return nil, fmt.Errorf("no cubes found with prefix %s", prefix)
+	}
+
+	// Step 2: Set up thread pool parameters
+	const maxWorkers = 10                                // Maximum number of concurrent requests to the server
+	sem := make(chan struct{}, maxWorkers)               // Semaphore to limit concurrency
+	var wg sync.WaitGroup                                // To wait for all goroutines to complete
+	resultsChan := make(chan CubeConnection, len(cubes)) // Channel to collect results
+
+	// Step 3: Process each cube in parallel
+	for _, cube := range cubes {
+		wg.Add(1)
+		sem <- struct{}{} // Acquire a slot in the thread pool
+		go func(cubeName string) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release the slot when done
+
+			// Get joints for this cube
+			joints := getJointsForCube(cubeName)
+
+			// Prepare the list of joint information
+			jointInfos := make([]JointInfo, 0, len(joints))
+
+			// Lock globalCubeLinks to safely read it
+			linkListMutex.Lock()
+			for _, jointName := range joints {
+				// Try to find this joint in globalCubeLinks to identify the connected cube
+				connectedCube := ""
+				for _, link := range globalCubeLinks {
+					if link.JointName == jointName {
+						if link.CubeA == cubeName {
+							connectedCube = link.CubeB
+						} else if link.CubeB == cubeName {
+							connectedCube = link.CubeA
+						}
+						break
+					}
+				}
+				jointInfos = append(jointInfos, JointInfo{
+					JointName:     jointName,
+					ConnectedCube: connectedCube,
+				})
+			}
+			linkListMutex.Unlock()
+
+			// Send the result to the channel
+			resultsChan <- CubeConnection{
+				CubeName: cubeName,
+				Joints:   jointInfos,
+			}
+		}(cube)
+	}
+
+	// Step 4: Wait for all goroutines to complete and close the results channel
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	// Step 5: Collect results into a slice
+	result := make([]CubeConnection, 0, len(cubes))
+	for conn := range resultsChan {
+		result = append(result, conn)
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no connections found for cubes with prefix %s", prefix)
+	}
+
+	// Step 6: Sort the results by CubeName for consistency (optional)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CubeName < result[j].CubeName
+	})
+
+	return result, nil
 }

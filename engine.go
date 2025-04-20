@@ -267,7 +267,7 @@ func targetedUnfreezeAllCubes(unitName string) {
 func main() {
 
 	// --- Discovery Phase ---
-	scanner.InitSparseScanner(
+	/*scanner.InitSparseScanner(
 		[]string{
 			"192.168.0.229",
 			"192.168.0.227",
@@ -278,11 +278,11 @@ func main() {
 	scanner.ScanAllPods()
 	scanner.PrintSummary()
 
-	singlePod()
+	singlePod()*/
 	//centers := scanner.ExtractPlanetCenters()
 
 	// List of planets' center coordinates
-	/*planetCenters := [][]float64{
+	planetCenters := [][]float64{
 		{0, 0, 0},
 	}
 
@@ -296,15 +296,18 @@ func main() {
 	nukeAllCubes()
 	// Spawn around all planets
 	spawnConstructsAroundSphere(1, role, domain, planetCenters, radius, paddingDegrees, constructsPerPlanet)
-	nukeAllCubes()*/
+
+	singlePod()
+
+	nukeAllCubes()
 }
 
 func singlePod() {
 	// Step 1: Initialize the SparseScanner
-	scannerSingle := NewSparseScanner([]string{"192.168.0.227"}, 10002)
+	scannerSingle := NewSparseScanner([]string{"127.0.0.1"}, 14000)
 
 	// Step 2: Create a PodResult
-	podResult := scannerSingle.ScanSinglePod("192.168.0.227", 10002)
+	podResult := scannerSingle.ScanSinglePod("127.0.0.1", 14000)
 
 	// Step 3: Add the PodResult to the scanner
 	scannerSingle.AddPodResult(podResult)
@@ -314,4 +317,45 @@ func singlePod() {
 	fmt.Println("Planets Map:", scannerSingle.PlanetsMap)
 	fmt.Println("Cubes Map:", scannerSingle.CubesMap)
 	scannerSingle.PrintSummary()
+
+	unitName := "[ARC]-OC-gen1-v10"
+
+	singleFilter := scannerSingle.GetCubesByPrefix(unitName)
+	fmt.Println(singleFilter)
+
+	// In buildDynamicConstruct, after linking cubes
+	/*connections, err := scannerSingle.GetCubesAndConnections(unitName)
+	if err != nil {
+		fmt.Printf("❌ Failed to retrieve cubes and connections for %s: %v\n", unitName, err)
+		return
+	}
+	fmt.Printf("🔗 Cubes and Connections for %s:\n", unitName)
+	for _, conn := range connections {
+		fmt.Printf("  Cube: %s\n", conn.CubeName)
+		for _, joint := range conn.Joints {
+			if joint.ConnectedCube != "" {
+				fmt.Printf("    Joint %s connects to %s\n", joint.JointName, joint.ConnectedCube)
+			} else {
+				fmt.Printf("    Joint %s (connected cube unknown)\n", joint.JointName)
+			}
+		}
+	}*/
+
+	// In buildDynamicConstruct, after linking cubes
+	connections, err := scannerSingle.GetCubesAndConnectionsParallel(unitName)
+	if err != nil {
+		fmt.Printf("❌ Failed to retrieve cubes and connections for %s: %v\n", unitName, err)
+		return
+	}
+	fmt.Printf("🔗 Cubes and Connections for %s:\n", unitName)
+	for _, conn := range connections {
+		fmt.Printf("  Cube: %s\n", conn.CubeName)
+		for _, joint := range conn.Joints {
+			if joint.ConnectedCube != "" {
+				fmt.Printf("    Joint %s connects to %s\n", joint.JointName, joint.ConnectedCube)
+			} else {
+				fmt.Printf("    Joint %s (connected cube unknown)\n", joint.JointName)
+			}
+		}
+	}
 }
