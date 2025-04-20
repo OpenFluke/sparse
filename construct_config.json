@@ -1,5 +1,4 @@
 {
-  "center": [0, 0, 0],
   "cubes": [
     {"Name": "head", "Position": [0, 3.6, 0]},
     {"Name": "body", "Position": [0, 2.4, 0]},

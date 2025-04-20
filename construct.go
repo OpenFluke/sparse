@@ -16,7 +16,6 @@ type ConstructConfig struct {
 	Chains      [][]string         `json:"chains"`       // Chains of cube names to link
 	JointType   string             `json:"joint_type"`   // Type of joint (e.g., "hinge")
 	JointParams map[string]float64 `json:"joint_params"` // Parameters for joints
-	Center      []float64          `json:"center"`       // Center position for the construct
 }
 
 // Construct represents a dynamic construct with its configuration and server details.
@@ -61,13 +60,6 @@ func (c *Construct) LoadConfigFromJSON(filename, unitName string) error {
 	for i := range config.Chains {
 		for j := range config.Chains[i] {
 			config.Chains[i][j] = unitName + "_" + config.Chains[i][j]
-		}
-	}
-
-	// Adjust cube positions relative to the center
-	for i := range config.Cubes {
-		for j := 0; j < 3; j++ {
-			config.Cubes[i].Position[j] += config.Center[j]
 		}
 	}
 
@@ -176,9 +168,9 @@ func (c *Construct) linkCubeChainsWithConfig(chains [][]string, jointType string
 }
 
 // Spawn spawns the construct at the specified orbit position around the planet.
-func (c *Construct) Spawn(orbitPosition []float64) error {
-	fmt.Printf("\n🚀 Spawning unit: %s at position (%.2f, %.2f, %.2f)\n",
-		c.unitName, c.Config.Center[0], c.Config.Center[1], c.Config.Center[2])
+func (c *Construct) Spawn(orbitPosition []float64, planetCenter []float64) error {
+	fmt.Printf("\n🚀 Spawning unit: %s at planet center (%.2f, %.2f, %.2f)\n",
+		c.unitName, planetCenter[0], planetCenter[1], planetCenter[2])
 
 	// Create a copy of the cubes to adjust their positions
 	adjustedCubes := make([]Cube, len(c.Config.Cubes))
@@ -224,8 +216,8 @@ func (c *Construct) Spawn(orbitPosition []float64) error {
 	}
 
 	// Calculate the angle in the XZ plane for logging, with a fallback for zero displacement
-	dx := orbitPosition[0] - c.Config.Center[0]
-	dz := orbitPosition[2] - c.Config.Center[2]
+	dx := orbitPosition[0] - planetCenter[0]
+	dz := orbitPosition[2] - planetCenter[2]
 	angle := 0.0
 	if dx != 0 || dz != 0 {
 		angle = math.Atan2(dz, dx) * (180.0 / math.Pi)
@@ -235,9 +227,9 @@ func (c *Construct) Spawn(orbitPosition []float64) error {
 
 	// Calculate the radius from the planet center to the orbit position
 	radius := math.Sqrt(
-		(orbitPosition[0]-c.Config.Center[0])*(orbitPosition[0]-c.Config.Center[0]) +
-			(orbitPosition[1]-c.Config.Center[1])*(orbitPosition[1]-c.Config.Center[1]) +
-			(orbitPosition[2]-c.Config.Center[2])*(orbitPosition[2]-c.Config.Center[2]),
+		(orbitPosition[0]-planetCenter[0])*(orbitPosition[0]-planetCenter[0]) +
+			(orbitPosition[1]-planetCenter[1])*(orbitPosition[1]-planetCenter[1]) +
+			(orbitPosition[2]-planetCenter[2])*(orbitPosition[2]-planetCenter[2]),
 	)
 
 	fmt.Printf("🪐 Orbiting construct %s around planet at radius %.2f with angle %.2f degrees\n",
@@ -283,7 +275,7 @@ func SpawnMultipleConstructs(
 	role, domain string,
 	startGen, startVersion int,
 	serverAddr, authPass, delimiter, jsonTemplatePath string,
-	orbitAroundPlanet bool,
+	planetCenter []float64,
 	offset []float64,
 ) error {
 	// Clear occupied positions before starting
@@ -328,7 +320,7 @@ func SpawnMultipleConstructs(
 	radius += maxDistance
 
 	// Generate positions for all constructs using fibonacciSphere
-	positions := fibonacciSphere(numConstructs, radius, construct.Config.Center)
+	positions := fibonacciSphere(numConstructs, radius, planetCenter)
 	if len(positions) != numConstructs {
 		return fmt.Errorf("fibonacciSphere returned %d positions, expected %d", len(positions), numConstructs)
 	}
@@ -381,7 +373,7 @@ func SpawnMultipleConstructs(
 			}
 
 			// Spawn the construct at the assigned position
-			if err := construct.Spawn(availablePositions[idx]); err != nil {
+			if err := construct.Spawn(availablePositions[idx], planetCenter); err != nil {
 				fmt.Printf("❌ Failed to spawn construct %s: %v\n", unitNames[idx], err)
 				return
 			}
