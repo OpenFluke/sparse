@@ -285,7 +285,10 @@ func main() {
 	scanner.ScanAllPods()
 	scanner.PrintSummary()
 
-	firstSpawn()
+	StartEMLst([]string{
+		"192.168.0.229",
+		"192.168.0.227",
+	}, 10002, authPass, delimiter)
 
 	//singlePod()
 	//centers := scanner.ExtractPlanetCenters()

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 )
 
@@ -85,4 +87,22 @@ func generateUnitID(role string, domain string, gen int, version int) string {
 		}
 	}
 	return fmt.Sprintf("[%s]-%s-gen%d-v%d", strings.ToUpper(role), projectCode, gen, version)
+}
+
+// LoadJSONFileToString reads a JSON file and returns its contents as a string after validating it.
+func LoadJSONFileToString(filename string) (string, error) {
+	// Read the file contents
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to read JSON file %s: %v", filename, err)
+	}
+
+	// Validate that the content is valid JSON by attempting to unmarshal it into a generic interface
+	var temp interface{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return "", fmt.Errorf("failed to validate JSON in file %s: %v", filename, err)
+	}
+
+	// Return the JSON content as a string
+	return string(data), nil
 }

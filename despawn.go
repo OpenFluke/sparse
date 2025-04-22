@@ -123,3 +123,66 @@ func nukeAllCubes() {
 
 	fmt.Println("[Nuke] Finished.")
 }
+
+// nukeAllCubes despawns all cubes across all pods.
+func nukeAllCubePods() {
+	var wg sync.WaitGroup
+	for _, pod := range scanner.Results {
+		if !pod.Success {
+			continue
+		}
+		wg.Add(1)
+		go func(podHost string, podPort int) {
+			defer wg.Done()
+			serverAddr := fmt.Sprintf("%s:%d", podHost, podPort)
+			conn, err := net.Dial("tcp", serverAddr)
+			if err != nil {
+				fmt.Printf("[Nuke] Failed to connect to %s: %v\n", serverAddr, err)
+				return
+			}
+			defer conn.Close()
+
+			if _, err := conn.Write([]byte(authPass + delimiter)); err != nil {
+				fmt.Printf("[Nuke] Failed to auth on %s: %v\n", serverAddr, err)
+				return
+			}
+			_, _ = readResponse(conn)
+
+			maxRetries := 5
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				// Request all cubes
+				if err := sendJSONMessage(conn, Message{"type": "get_cube_list"}); err != nil {
+					fmt.Printf("[Nuke] Failed to request cube list on %s: %v\n", serverAddr, err)
+					return
+				}
+				raw, err := readResponse(conn)
+				if err != nil {
+					fmt.Printf("[Nuke] Failed to read cube list on %s: %v\n", serverAddr, err)
+					return
+				}
+				var cubeData map[string]interface{}
+				if err := json.Unmarshal([]byte(raw), &cubeData); err != nil {
+					fmt.Printf("[Nuke] JSON unmarshal error on %s: %v\n", serverAddr, err)
+					return
+				}
+				cubes := toStringArray(cubeData["cubes"])
+				if len(cubes) == 0 {
+					fmt.Printf("[Nuke] All cubes cleared on %s.\n", serverAddr)
+					break
+				}
+				for _, cube := range cubes {
+					if err := sendJSONMessage(conn, Message{
+						"type":      "despawn_cube",
+						"cube_name": cube,
+					}); err != nil {
+						fmt.Printf("[Nuke] Failed to despawn cube %s on %s: %v\n", cube, serverAddr, err)
+					}
+				}
+				fmt.Printf("[Nuke] NUKED %d cubes on %s (pass %d)\n", len(cubes), serverAddr, attempt)
+				time.Sleep(500 * time.Millisecond) // Give server time to process
+			}
+		}(pod.Host, pod.Port)
+	}
+	wg.Wait()
+	fmt.Println("[Nuke] Finished despawning across all pods.")
+}

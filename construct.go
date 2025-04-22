@@ -25,6 +25,7 @@ type Construct struct {
 	constructAuthPass   string // Authentication password for the server
 	constructDelimiter  string // Message delimiter for the TCP protocol
 	unitName            string // Unique identifier for this construct instance
+	RawJSON             string // New field to store the raw JSON string
 }
 
 // NewConstruct creates a new Construct instance with the given server details.
@@ -64,6 +65,46 @@ func (c *Construct) LoadConfigFromJSON(filename, unitName string) error {
 	}
 
 	c.Config = config
+	return nil
+}
+
+// LoadConfigFromJSONString loads the construct configuration from a JSON string and applies the unitName.
+func (c *Construct) LoadConfigFromJSONString(jsonStr, unitName string) error {
+	// Unmarshal the JSON string into a ConstructConfig
+	var config ConstructConfig
+	if err := json.Unmarshal([]byte(jsonStr), &config); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON string: %v", err)
+	}
+
+	// Set the unitName for this construct instance
+	c.unitName = unitName
+
+	// Prefix all cube names with the unitName
+	for i := range config.Cubes {
+		config.Cubes[i].Name = unitName + "_" + config.Cubes[i].Name
+	}
+
+	// Prefix all chain names with the unitName
+	for i := range config.Chains {
+		for j := range config.Chains[i] {
+			config.Chains[i][j] = unitName + "_" + config.Chains[i][j]
+		}
+	}
+
+	c.Config = config
+	return nil
+}
+
+// LoadJSONToString loads a JSON string into the Construct, validating its format.
+func (c *Construct) LoadJSONToString(jsonStr string) error {
+	// Validate that the string is valid JSON by attempting to unmarshal it into a generic interface
+	var temp interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &temp); err != nil {
+		return fmt.Errorf("failed to validate JSON string: %v", err)
+	}
+
+	// Store the raw JSON string
+	c.RawJSON = jsonStr
 	return nil
 }
 
