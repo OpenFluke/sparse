@@ -84,6 +84,11 @@ func StartEMLst(quick []string, port int, aPass string, aDel string) {
 
 			ExperimentModels = append(ExperimentModels, expModel)
 
+			/*tmp.PrintCubesTable()
+
+			fmt.Println("-----------")
+			tmp.PrintChainsJointTable()*/
+
 		}
 	}
 
