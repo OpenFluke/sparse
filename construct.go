@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	paragon "github.com/OpenFluke/PARAGON"
 )
 
 // ConstructConfig holds the configuration for a construct, loaded from JSON.
@@ -26,6 +28,8 @@ type Construct struct {
 	constructDelimiter  string // Message delimiter for the TCP protocol
 	unitName            string // Unique identifier for this construct instance
 	RawJSON             string // New field to store the raw JSON string
+	Model               *paragon.Network
+	LstModels           []*paragon.Network
 }
 
 // NewConstruct creates a new Construct instance with the given server details.
