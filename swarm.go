@@ -89,6 +89,15 @@ func StartEMLst(quick []string, port int, aPass string, aDel string) {
 			fmt.Println("-----------")
 			tmp.PrintChainsJointTable()*/
 
+			if !FileExists("cubes.csv") {
+				tmpCubeLst := tmp.GetCubesTable()
+				SaveToCSV(tmpCubeLst, "cubes.csv")
+			}
+
+			if !FileExists("links.csv") {
+				tmpCubeLst := tmp.GetChainsJointTable()
+				SaveToCSV(tmpCubeLst, "links.csv")
+			}
 		}
 	}
 
